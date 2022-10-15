@@ -1,0 +1,55 @@
+#!/bin/bash
+
+
+sudo apt-get update
+sudo hostnamectl set-hostname wordpress
+# sudo apt-get remove docker docker-engine docker.io -y
+sudo apt-get install docker.io docker-compose mysql-client nfs-common -y
+sudo mkdir -p /mnt/shared
+sudo mount -t nfs4 ${efs_address} /mnt/shared
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# mysql -u admin -h RDS endpoint -P 3306 -padmin2021
+mysql -u academy -pacademy2021 -h ${rds_address} -Bse "
+CREATE USER 'wordpress'@'%' IDENTIFIED BY 'wordpress';
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE ON wordpress.* TO 'wordpress'@'%';
+FLUSH PRIVILEGES;"
+# # (AZ RDS-sec grouphoz add hozzá a WP-SG-ét)
+# SHOW GRANTS for wordpress;
+
+
+mkdir -p /home/ubuntu/Docker/ && cd /home/ubuntu/Docker/
+
+sudo cat << EOF > docker-compose.yml
+
+version: '3.3'
+
+services:
+    wordpress:
+        image: wordpress:latest
+        container_name: default_wordpress_1
+        ports:
+            - "80:80"
+        restart: always
+        environment:
+            WORDPRESS_DB_HOST: ${rds_address}
+            WORDPRESS_DB_USER: wordpress
+            WORDPRESS_DB_PASSWORD: wordpress
+            WORDPRESS_DB_NAME: wordpress
+EOF
+
+sudo docker-compose up -d wordpress
+
+# sleep 30
+#
+# sudo docker run --rm -i \
+#     --volumes-from default_wordpress_1 \
+#     --network container:default_wordpress_1 \
+#     wordpress:cli-2.4 \
+#         wp core install \
+#         --title='Terraform' \
+#         --admin_user="wordpress" \
+#         --admin_password="wordpress" \
+#         --admin_email='test@test.com' \
+#         --skip-email

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+
+sudo apt-get update
+sudo hostnamectl set-hostname wordpress
+# sudo apt-get remove docker docker-engine docker.io -y
+sudo apt-get install docker.io docker-compose mysql-client -y
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# mysql -u admin -h RDS endpoint -P 3306 -padmin2021
+mysql -u academy -pacademy2021 -h ${var.rds_address}
+
+# # (AZ RDS-sec grouphoz add hozzá a WP-SG-ét)
+# # CREATE DATABASE wordpress;
+CREATE USER 'wordpress'@'%' IDENTIFIED BY 'wordpress';
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE ON wordpress.* TO 'wordpress'@'%';
+FLUSH PRIVILEGES;
+# SHOW GRANTS for wordpress;
+\q
+
+mkdir -p ~/Docker/ && cd ~/Docker/
+
+sudo cat << EOF > docker-compose.yml
+
+version: '3.3'
+
+services:
+    wordpress:
+        image: wordpress:latest
+        ports:
+            - "80:80"
+        restart: always
+        environment:
+            WORDPRESS_DB_HOST: ${var.rds_address}
+            WORDPRESS_DB_USER: wordpress
+            WORDPRESS_DB_PASSWORD: wordpress
+            WORDPRESS_DB_NAME: wordpress
+EOF
+
+sudo docker-compose up -d wordpress
